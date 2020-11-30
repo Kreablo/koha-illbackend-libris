@@ -57,6 +57,10 @@ if a connection to a real biblio can not be established.
 
 =item * B<ill_branch> - Library to tie imported dta about libraries to.
 
+=item * B<ill_homebranch> - Homebranch of created items.  The
+borrowers branchcode is used if this is omitted from the
+configuration.
+
 =item * B<ill_itemtype> - When items are created for ILL documents, use this
 itemtype.
 
