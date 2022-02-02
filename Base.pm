@@ -30,6 +30,8 @@ use C4::Biblio;
 use C4::Context;
 use C4::Letters;
 use C4::Message;
+use Koha::Account::DebitTypes;
+use Koha::DateUtils qw( dt_from_string );
 use Koha::Illrequestattribute;
 use Koha::Patrons;
 use Koha::Item;
@@ -670,6 +672,29 @@ sub receive {
         $request->illrequestattributes->find({ 'type' => 'active_library' })->update({ 'value' => $params->{ 'other' }->{ 'active_library' } });
         $request->store;
 
+        # Charge patron, if requested
+        if ( $params->{ 'other' }->{ 'ill_charge' } && length( $params->{ 'other' }->{ 'ill_charge' } ) > 0 ) {
+            my $fee = $params->{ 'other' }->{ 'ill_charge' };
+            $fee =~ /([\d,.]+)/s;
+
+            my $debit_type_code = $params->{ 'other' }->{ 'ill_charge_type' };
+
+            my $userenv = C4::Context->userenv;
+            my $manager_id = $userenv ? $userenv->{number} : undef;
+            my $fee = Koha::Account::Line->new({
+                amount            => $fee,
+                borrowernumber    => $request->borrowernumber,
+                debit_type_code   => $debit_type_code,
+                amountoutstanding => $fee,
+                note              => $request->illrequest_id,
+                description       => $params->{ 'other' }->{ 'ill_charge_description' },
+                manager_id        => $manager_id,
+                interface         => 'intranet',
+                branchcode        => $request->branchcode,
+                date              => dt_from_string
+            })->store();
+        }
+
         # Send an email, if requested
         if ( $params->{ 'other' }->{ 'send_email' } && $params->{ 'other' }->{ 'send_email' } == 1 ) {
             my $email = {
@@ -825,6 +850,12 @@ sub receive {
             return defined $a ? $a->value : '';
         };
 
+        # Prepare charge types
+        my $ill_charge_types =
+        Koha::Account::DebitTypes->search_with_library_limits(
+          { archived => 0 },
+          {}, $request->branchcode );
+
         # -> create response.
         return {
             error   => 0,
@@ -835,6 +866,7 @@ sub receive {
             next    => 'illview',
             illrequest_id => $request->illrequest_id,
             borrowernumber => $request->borrowernumber,
+            ill_charge_types => $ill_charge_types,
             title     => $reqattr->('title'),
             author    => $reqattr->('author'),
             lf_number => $reqattr->('lf_number'),
