@@ -933,11 +933,11 @@ sub upsert_record {
         # Find the record connected to the saved request
         $biblionumber = $saved_req->biblio_id;
         # Update record
-        ModBiblio( $record, $biblionumber, '' );
+        C4::Biblio::ModBiblio( $record, $biblionumber, '' );
         say "Updated record with biblionumber=$biblionumber";
     } else {
         # Add a new record
-        ( $biblionumber, $biblioitemnumber ) = AddBiblio( $record, '' );
+        ( $biblionumber, $biblioitemnumber ) = C4::Biblio::AddBiblio( $record, '' );
         say "Added new record with biblionumber=$biblionumber";
         my $item_hash = {
             'biblionumber'   => $biblionumber,
