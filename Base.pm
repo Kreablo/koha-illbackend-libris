@@ -246,6 +246,7 @@ sub translate_status {
         'Remitterad'     => 'REM',
         'Avbeställd'     => 'AVBEST', # Cancelled
         'Makulerad'      => 'MAK',    # Maculated?
+        'Ej avbeställd!' => 'EJAVB',  # Not cancelled
     );
     return $map{ $raw_status };
 
@@ -524,6 +525,18 @@ sub status_graph {
             ui_method_name => 'Avsluta',                   # UI name of method leading
                                                            # to this status
             method         => 'close',                    # method to this status
+            next_actions   => [ ], # buttons to add to all
+                                                           # requests with this status
+            ui_method_icon => 'fa-stop',                   # UI Style class
+        },
+        "IN_EJAVB" => {
+            prev_actions => [ ],                           # Actions containing buttons
+                                                           # leading to this status
+            id             => 'IN_EJAVB',                  # ID of this status
+            name           => 'Inlån Ej avbeställd',       # UI name of this status
+            ui_method_name => 'Ej avbeställd',             # UI name of method leading
+                                                           # to this status
+            method         => '',                    # method to this status
             next_actions   => [ ], # buttons to add to all
                                                            # requests with this status
             ui_method_icon => 'fa-stop',                   # UI Style class
@@ -923,9 +936,16 @@ sub upsert_record {
     }
 
     # Make sure we have the default itemtype in 942$c
-    $record->insert_fields_ordered(
-        MARC::Field->new('942', '', '', c => $ill_itemtype ),
-    );
+    my $field_942 = MARC::Field->new('942', '', '', c => $ill_itemtype );
+    # Add more subfields to 942, if configured
+    if ( defined $ill_config->{ 'subfields_for_942' } ) {
+        my $subfields = $ill_config->{ 'subfields_for_942' };
+        foreach my $key ( sort keys %{ $subfields } ) {
+            $field_942->add_subfields( $key, $subfields->{ $key } );
+        }
+    }
+    # Add the field to the record
+    $record->insert_fields_ordered( $field_942 );
 
     # Update or save the record
     my ( $biblionumber, $biblioitemnumber );
@@ -1114,6 +1134,33 @@ sub userid2borrower {
         $id_field = $ill_config->{ 'patron_id_field' };
     }
     my $patron = Koha::Patrons->find({ $id_field => $user_id });
+
+    # If we do not have a patron yet, and patron_id_attributes is set, use the
+    # attributes to look for the patron.
+    if ( !$patron && defined $ill_config->{ 'patron_id_attributes' } ) {
+
+        my @cond;
+        my @needles;
+        # Build the WHERE part of the query
+        foreach my $attr ( @{ $ill_config->{'patron_id_attributes'} } ) {
+            push @cond, "(code = '$attr' AND attribute = ?)";
+            push @needles, $user_id;
+        }
+        my $where = join( " OR ", @cond );
+
+        # Execute the query
+        my $query = "SELECT borrowernumber FROM borrower_attributes WHERE $where;";
+        my $dbh = C4::Context->dbh;
+        my $sth = $dbh->prepare($query);
+        $sth->execute( @needles );
+        my $borrowernumber = $sth->fetchrow_array;
+
+        # Find the borrower
+        if ( $borrowernumber ) {
+            $patron = Koha::Patrons->find({ 'borrowernumber' => $borrowernumber });
+        }
+
+    }
 
     if ( $patron ) {
         return $patron;
@@ -1424,6 +1471,9 @@ sub create {
     # -> initial placement of the request for an ILL order
     my ( $self, $params ) = @_;
 
+    my $ill_config_file = C4::Context->config('interlibrary_loans')->{'libris_config'};
+    my $ill_config = LoadFile( $ill_config_file );
+
 warn "In create";
 warn Dumper $params;
 
@@ -1474,7 +1524,7 @@ warn Dumper $params;
         $request->orderid(        $params->{other}->{orderid} );
         $request->borrowernumber( $params->{other}->{borrowernumber} );
         $request->biblio_id(      $other->{biblio_id} );
-        $request->branchcode(     'FJARRLAN' ); # FIXME $params->{other}->{branchcode} );
+        $request->branchcode(     $ill_config->{ 'ill_library' } );
         $request->status(         'IN_UTEL' );
         $request->placed(         DateTime->now);
         $request->medium(         $params->{other}->{medium} );

@@ -44,6 +44,10 @@ or borrowernumber.
 
 =item * 2020-11-25: recordid_limit (optional, default: 100)
 
+=item * 2021-22-02: patron_id_attributes (optional)
+
+=item * 2022-02-21: subfields_for_942 (optional)
+
 =back
 
 =head1 AUTHOR

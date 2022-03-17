@@ -122,12 +122,24 @@ with this variable the backend can be told to use e.g. userid or borrowernumber.
 If this variable is not included in the config, cardnumber will be used as the
 default.
 
+=item * B<patron_id_attributes> - I patron identifiers (like extra cardnumbers)
+are stored as "extended patron attributes", a list of attribute codes can be
+listed in this config variable, and patrons will be looked up based on these
+attributes too, if a patron has not been found using the field in the 
+patron_id_field. If this variable is not included in the config, only the field
+specified by patron_id_field will be used to identify patrons.
+
 =item * B<recordid_limit> - If the script that imports requests from Libris
 fails somewhere between creating a record and recording the request in the DB,
 a new copy of the same record might be added once every time F<get_data_from_libris.pl>
 is run, resulting in possibly hundreds of copies of the same record. The script
 will by default die if there are more than 100 copies of the record it is trying
 to add. The threshold can be changed with this parameter.
+
+=item * B<subfields_for_942> - The value from B<ill_itemtype> will automatically
+be added as 942$c. With this config option you can add any given value to any
+other subfield of field 942. This config variable was added to make it possible
+to always set 942$n = 1 (suppress in opac).
 
 =back
 
@@ -151,6 +163,9 @@ Example:
   close_article_request_on_receive: 0
   patron_id_field: userid
   recordid_limit: 25
+  subfields_for_942:
+    n: 1
+    x: y
 
 =head2 Notices
 
