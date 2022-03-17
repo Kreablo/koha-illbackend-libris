@@ -274,13 +274,13 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
                 say "Reserve NOT FOUND! Going to add one for branchcode=", $borrower->branchcode, " borrowernumber=", $borrower->borrowernumber, " biblionumber=$biblionumber";
                 my $reserve_id;
                 if (C4::Context->preference("Version") > 20) {
-                    $reserve_id = AddReserve( {
+                    $reserve_id = C4::Reserves::AddReserve( {
                         branchcode => $borrower->branchcode,
                         borrowernumber => $borrower->borrowernumber,
                         biblionumber => $biblionumber
                     } );
                 } else {
-                    $reserve_id = AddReserve( $borrower->branchcode, $borrower->borrowernumber, $biblionumber );
+                    $reserve_id = C4::Reserves::AddReserve( $borrower->branchcode, $borrower->borrowernumber, $biblionumber );
                 }
                 say "Reserve added with reserve_id=$reserve_id";
             }
