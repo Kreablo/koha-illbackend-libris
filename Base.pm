@@ -578,7 +578,7 @@ sub close {
         $item->delete;
     }
     # Delete the record
-    my $error = DelBiblio( $request->biblio_id );
+    my $error = C4::Biblio::DelBiblio( $request->biblio_id );
 
     # Update the illrequest
     # The status given to requests here should result in the requests being hidden
