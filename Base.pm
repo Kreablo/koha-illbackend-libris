@@ -795,7 +795,13 @@ sub receive {
                 'biblioitems', $item->biblionumber,
                 'borrowers', $patron->borrowernumber,
             },
-        );
+            );
+
+        my $reqattr = sub {
+            my $type = shift;
+            my $a = $request->illrequestattributes->find({ type => $type });
+            return defined $a ? $a->value : '';
+        };
 
         # -> create response.
         return {
@@ -807,11 +813,11 @@ sub receive {
             next    => 'illview',
             illrequest_id => $request->illrequest_id,
             borrowernumber => $request->borrowernumber,
-            title     => $request->illrequestattributes->find({ type => 'title' })->value,
-            author    => $request->illrequestattributes->find({ type => 'author' })->value,
-            lf_number => $request->illrequestattributes->find({ type => 'lf_number' })->value,
-            type      => $request->illrequestattributes->find({ type => 'media_type' })->value,
-            active_library => => $request->illrequestattributes->find({ type => 'active_library' })->value,
+            title     => $reqattr->('title'),
+            author    => $reqattr->('author'),
+            lf_number => $reqattr->('lf_number'),
+            type      => $reqattr->('media_type'),
+            active_library => $reqattr->('active_library'),
             letter_code => $letter_code,
             email     => $email,
             sms       => $sms,
