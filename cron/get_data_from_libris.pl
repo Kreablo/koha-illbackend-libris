@@ -19,6 +19,7 @@ use YAML::Syck;
 use Scalar::Util qw( reftype );
 use Getopt::Long;
 use Data::Dumper;
+$Data::Dumper::Sortkeys = 1;
 use Template;
 use DateTime;
 use Pod::Usage;
@@ -28,7 +29,7 @@ binmode STDOUT, ":utf8";
 $| = 1; # Don't buffer output
 
 use C4::Context;
-use C4::Reserves;
+use C4::Reserves qw( AddReserve );
 use Koha::Illcomment;
 use Koha::Illrequests;
 use Koha::Illrequest::Config;
@@ -166,6 +167,7 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
     }
 
     my $biblionumber = 0;
+    my $itemnumber;
     my $borrower     = 0;
     my $status       = '';
     my $is_inlan     = 0;
@@ -239,7 +241,7 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
             next REQUEST;
         }
         # Update the record
-        $biblionumber = Koha::Illbackends::Libris::Base::upsert_record( $ill_config, 'update', $req, $homebranch, $holdingbranch, $old_illrequest );
+        ( $biblionumber, $itemnumber ) = Koha::Illbackends::Libris::Base::upsert_record( $ill_config, 'update', $req, $homebranch, $holdingbranch, $old_illrequest );
         # Make a comment if the status changed
         if ( $status ne $old_illrequest->status ) {
             my $sg = Koha::Illbackends::Libris::Base::status_graph();
@@ -264,7 +266,7 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
         $old_illrequest->store;
         say "Connected to biblionumber=$biblionumber";
         # Update the attributes
-	insert_or_update_attributes($old_illrequest, $req);
+        insert_or_update_attributes($old_illrequest, $req);
         # Check if there is a reserve, if not add one (only for Inlån and loans, not copies)
         if ( ( $is_inlan && $is_inlan == 1 ) && $req->{'media_type'} eq 'Lån' ) {
             my $res = Koha::Holds->find({ borrowernumber => $borrower->borrowernumber, biblionumber => $biblionumber });
@@ -274,11 +276,20 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
                 say "Reserve NOT FOUND! Going to add one for branchcode=", $borrower->branchcode, " borrowernumber=", $borrower->borrowernumber, " biblionumber=$biblionumber";
                 my $reserve_id;
                 if (C4::Context->preference("Version") > 20) {
-                    $reserve_id = C4::Reserves::AddReserve( {
-                        branchcode => $borrower->branchcode,
-                        borrowernumber => $borrower->borrowernumber,
-                        biblionumber => $biblionumber
-                    } );
+                    if ( defined $ill_config->{ 'item_level_holds' } && $ill_config->{ 'item_level_holds' } == 1 ) {
+                        $reserve_id = C4::Reserves::AddReserve( {
+                            branchcode => $borrower->branchcode,
+                            borrowernumber => $borrower->borrowernumber,
+                            biblionumber => $biblionumber,
+                            itemnumber => $itemnumber,
+                        } );
+                    } else {
+                        $reserve_id = C4::Reserves::AddReserve( {
+                            branchcode => $borrower->branchcode,
+                            borrowernumber => $borrower->borrowernumber,
+                            biblionumber => $biblionumber,
+                        } );
+                    }
                 } else {
                     $reserve_id = C4::Reserves::AddReserve( $borrower->branchcode, $borrower->borrowernumber, $biblionumber );
                 }
@@ -292,7 +303,7 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
         if ( $borrower ) {
             $borrower_branchcode = $borrower->branchcode;
         }
-        $biblionumber = Koha::Illbackends::Libris::Base::upsert_record( $ill_config, 'insert', $req, $homebranch, $holdingbranch );
+        ( $biblionumber, $itemnumber ) = Koha::Illbackends::Libris::Base::upsert_record( $ill_config, 'insert', $req, $homebranch, $holdingbranch );
         # Create the request
         say "Going to create a new request" if $verbose;
         my $illrequest = Koha::Illrequest->new;
@@ -317,16 +328,25 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
         say Dumper $backend_result; # FIXME Check for no errors
         say "Created new request with illrequest_id = " . $illrequest->illrequest_id if $verbose;
         # Add attributes
-	insert_or_update_attributes($illrequest, $req);
+        insert_or_update_attributes($illrequest, $req);
         # Add a hold, but only for Inlån and for loans, not copies
         if ( $is_inlan && $is_inlan == 1 && $req->{'media_type'} eq 'Lån' ) {
             my $reserve_id;
             if (C4::Context->preference("Version") > 20) {
-                $reserve_id = AddReserve( {
-                    branchcode => $borrower->branchcode,
-                    borrowernumber => $borrower->borrowernumber,
-                    biblionumber => $biblionumber
-                } );
+                if ( defined $ill_config->{ 'item_level_holds' } && $ill_config->{ 'item_level_holds' } == 1 ) {
+                    $reserve_id = AddReserve( {
+                        branchcode => $borrower->branchcode,
+                        borrowernumber => $borrower->borrowernumber,
+                        biblionumber => $biblionumber,
+                        itemnumber => $itemnumber,
+                    } );
+                } else {
+                    $reserve_id = AddReserve( {
+                        branchcode => $borrower->branchcode,
+                        borrowernumber => $borrower->borrowernumber,
+                        biblionumber => $biblionumber,
+                    } );
+                }
             } else {
                 $reserve_id = AddReserve( $borrower->branchcode, $borrower->borrowernumber, $biblionumber );
             }

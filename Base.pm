@@ -26,10 +26,12 @@ use LWP::Simple;
 use HTTP::Request;
 use Data::Dumper;
 
-use C4::Biblio;
+use C4::Biblio qw( AddBiblio ModBiblio DelBiblio );
 use C4::Context;
 use C4::Letters;
 use C4::Message;
+use Koha::Account::DebitTypes;
+use Koha::DateUtils qw( dt_from_string );
 use Koha::Illrequestattribute;
 use Koha::Patrons;
 use Koha::Item;
@@ -213,7 +215,11 @@ sub metadata {
             = $attrs->find({type => 'volume_designation'})
             ? $attrs->find({type => 'volume_designation'})->value
             : '';
-
+        # Add title_of_article to the existing Title
+        $return->{'Title'}
+            = $attrs->find({type => 'title_of_article'})
+            ? $return->{'Title'} . ' [ ' . $attrs->find({type => 'title_of_article'})->value . ' ]'
+            : $return->{'Title'};
     }
 
     return $return;
@@ -670,6 +676,29 @@ sub receive {
         $request->illrequestattributes->find({ 'type' => 'active_library' })->update({ 'value' => $params->{ 'other' }->{ 'active_library' } });
         $request->store;
 
+        # Charge patron, if requested
+        if ( $params->{ 'other' }->{ 'ill_charge' } && length( $params->{ 'other' }->{ 'ill_charge' } ) > 0 ) {
+            my $fee = $params->{ 'other' }->{ 'ill_charge' };
+            $fee =~ /([\d,.]+)/s;
+
+            my $debit_type_code = $params->{ 'other' }->{ 'ill_charge_type' };
+
+            my $userenv = C4::Context->userenv;
+            my $manager_id = $userenv ? $userenv->{number} : undef;
+            $fee = Koha::Account::Line->new({
+                amount            => $fee,
+                borrowernumber    => $request->borrowernumber,
+                debit_type_code   => $debit_type_code,
+                amountoutstanding => $fee,
+                note              => $request->illrequest_id,
+                description       => $params->{ 'other' }->{ 'ill_charge_description' },
+                manager_id        => $manager_id,
+                interface         => 'intranet',
+                branchcode        => $request->branchcode,
+                date              => dt_from_string
+            })->store();
+        }
+
         # Send an email, if requested
         if ( $params->{ 'other' }->{ 'send_email' } && $params->{ 'other' }->{ 'send_email' } == 1 ) {
             my $email = {
@@ -729,11 +758,27 @@ sub receive {
                 }
             }
 
+            # Store date_received
+            my $date_received = Koha::Illrequestattributes->find({
+                illrequest_id => $request->illrequest_id,
+                type          => 'date_received',
+            });
+            unless ( $date_received ) {
+                $date_received = Koha::Illrequestattribute->new({
+                    illrequest_id => $request->illrequest_id,
+                    type          => 'date_received',
+                    value         => DateTime->today,
+                })->store;
+            }
+            else {
+                $date_received->value(DateTime->today)->store;
+            }
+
         } else {
 
             ## This is an article/copy
 
-            if ( $ill_config->{'close_article_request_on_receive'} && $ill_config->{'close_article_request_on_receive'} == 1 ) {
+            if ( $ill_config->{ 'close_article_request_on_receive' } && $ill_config->{ 'close_article_request_on_receive' } == 1 ) {
                 # Mark the request as "done"
                 $request->status( 'IN_AVSL' );
                 $request->store;
@@ -803,6 +848,12 @@ sub receive {
             return defined $a ? $a->value : '';
         };
 
+        # Prepare charge types
+        my $ill_charge_types =
+        Koha::Account::DebitTypes->search_with_library_limits(
+          { archived => 0 },
+          {}, $request->branchcode );
+
         # -> create response.
         return {
             error   => 0,
@@ -813,9 +864,11 @@ sub receive {
             next    => 'illview',
             illrequest_id => $request->illrequest_id,
             borrowernumber => $request->borrowernumber,
+            patron         => $patron,
+            categorycode   => $patron->categorycode,
             title     => $reqattr->('title'),
             author    => $reqattr->('author'),
-            lf_number => $reqattr->('lf_number'),
+            lf_number => $request->orderid,
             type      => $reqattr->('media_type'),
             active_library => $reqattr->('active_library'),
             letter_code => $letter_code,
@@ -953,8 +1006,13 @@ sub upsert_record {
     # Add the field to the record
     $record->insert_fields_ordered( $field_942 );
 
+    # If this is an article request, add the article title to 245$a
+    if ( defined $libris_req->{ 'media_type' } && $libris_req->{ 'media_type' } eq 'Kopia' && defined $libris_req->{ 'title_of_article' } && $libris_req->{ 'title_of_article' } ne '' ) {
+        $record = _append_to_field( $record, '245', 'a', $libris_req->{ 'title_of_article' } );
+    }
+
     # Update or save the record
-    my ( $biblionumber, $biblioitemnumber );
+    my ( $biblionumber, $biblioitemnumber, $itemnumber );
     if ( $action eq 'update' ) { 
         # Find the record connected to the saved request
         $biblionumber = $saved_req->biblio_id;
@@ -977,14 +1035,14 @@ sub upsert_record {
         my $item = Koha::Item->new( $item_hash );
         if ( defined $item ) {
             $item->store;
-            my $itemnumber = $item->itemnumber;
+            $itemnumber = $item->itemnumber;
             say "Added new item with itemnumber=$itemnumber and notforloan: " . $item->notforloan;
         } else {
             say "No item added";
         }
     }
 
-    return $biblionumber;
+    return ( $biblionumber, $itemnumber );
 }
 
 sub get_record_from_libris {
@@ -1006,7 +1064,7 @@ sub get_record_from_libris {
        $record->delete_fields( $record->field( $tag ) );
     }
 
-    say $record->as_xml();
+    say $record->as_formatted();
 
     return $record;
 
@@ -1056,8 +1114,8 @@ sub get_data {
     my ( $ill_config, $fragment ) = @_;
 
     my $base_url  = 'http://iller.libris.kb.se/librisfjarrlan/api';
-    my $sigil     = $ill_config->{'libris_sigil'};
-    my $libriskey = $ill_config->{'libris_key'};
+    my $sigil     = $ill_config->{ 'libris_sigil' };
+    my $libriskey = $ill_config->{ 'libris_key' };
 
     # Create a user agent object
     my $ua = LWP::UserAgent->new;
@@ -1095,6 +1153,30 @@ sub get_data {
     # say Dumper $data if $debug;
 
     return $data;
+
+}
+
+=head3 _append_to_field
+
+  $record = _append_to_field( $record, '245', 'a', 'Some text' );
+
+Takes a record, a field, a subfield and a string. Returns the record, with the
+given string appended to the given subfield in the given field. The string is
+enclosed in "[]". The field and the subfield is assumed to occur only once.
+
+=cut
+
+sub _append_to_field {
+
+    my ( $record, $field, $subfield, $string ) = @_;
+
+    my $this_field = $record->field( $field );
+    my $old_text = $this_field->subfield( $subfield );
+    my $new_text = "$old_text [ $string ]";
+
+    $this_field->update( $subfield => $new_text );
+
+    return $record;
 
 }
 
@@ -1141,6 +1223,12 @@ sub userid2borrower {
     }
     my $patron = Koha::Patrons->find({ $id_field => $user_id });
 
+    # Check one more identifier, if configured
+    if ( !$patron && defined $ill_config->{ 'patron_id_field_alt' } ) {
+        $id_field = $ill_config->{ 'patron_id_field_alt' };
+        $patron = Koha::Patrons->find({ $id_field => $user_id });
+    }
+
     # If we do not have a patron yet, and patron_id_attributes is set, use the
     # attributes to look for the patron.
     if ( !$patron && defined $ill_config->{ 'patron_id_attributes' } ) {
@@ -1148,7 +1236,7 @@ sub userid2borrower {
         my @cond;
         my @needles;
         # Build the WHERE part of the query
-        foreach my $attr ( @{ $ill_config->{'patron_id_attributes'} } ) {
+        foreach my $attr ( @{ $ill_config->{ 'patron_id_attributes' } } ) {
             push @cond, "(code = '$attr' AND attribute = ?)";
             push @needles, $user_id;
         }
@@ -1385,8 +1473,8 @@ sub _update_libris {
     my $url = "http://iller.libris.kb.se/librisfjarrlan/api/illrequests/$sigil/$orderid";
     warn "POSTing to $url";
     my $req = HTTP::Request->new( 'POST', $url );
-    warn "*** libris_key: " . $ill_config->{'libris_key'};
-    $req->header( 'api-key' => $ill_config->{'libris_key'} );
+    warn "*** libris_key: " . $ill_config->{ 'libris_key' };
+    $req->header( 'api-key' => $ill_config->{ 'libris_key' } );
     $req->header( 'Content-Type' => 'application/x-www-form-urlencoded' );
     $req->content( "action=$action&timestamp=$timestamp$extra_content" );
 
@@ -1426,8 +1514,8 @@ sub _get_data_from_libris {
     my ( $ill_config, $fragment ) = @_;
 
     my $base_url  = 'http://iller.libris.kb.se/librisfjarrlan/api';
-    my $sigil     = $ill_config->{'libris_sigil'};
-    my $libriskey = $ill_config->{'libris_key'};
+    my $sigil     = $ill_config->{ 'libris_sigil' };
+    my $libriskey = $ill_config->{ 'libris_key' };
 
     # Create a user agent object
     my $ua = LWP::UserAgent->new;
@@ -1530,7 +1618,7 @@ warn Dumper $params;
         $request->orderid(        $params->{other}->{orderid} );
         $request->borrowernumber( $params->{other}->{borrowernumber} );
         $request->biblio_id(      $other->{biblio_id} );
-        $request->branchcode(     $ill_config->{ 'ill_library' } );
+        $request->branchcode(     $ill_config->{ 'ill_branch' } );
         $request->status(         'IN_UTEL' );
         $request->placed(         DateTime->now);
         $request->medium(         $params->{other}->{medium} );

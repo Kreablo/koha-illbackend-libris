@@ -1,3 +1,5 @@
+[% USE Categories %]
+
 <!-- Error Handling -->
 [% IF whole.error %]
     <!-- Dispatch on Status -->
@@ -38,7 +40,12 @@
            </li>
            <li class="borrowernumber">
                 <label class="borrowernumber">Låntagare:</label>
-                <input type="text" name="borrowernumber" id="borrowernumber" value="[% whole.borrowernumber %]" />
+                [% whole.patron.firstname %] [% whole.patron.surname %]
+                <input type="text" name="borrowernumber" id="borrowernumber" size="7" value="[% whole.borrowernumber %]" />
+           </li>
+           <li class="categorycode">
+                <label class="categorycode">Kategori:</label>
+                <span id="categorycode">[% Categories.GetName( whole.categorycode ) | html %] ([% whole.categorycode %])</span>
            </li>
            <li class="active_library">
                 <label class="active_library">Långivande bibliotek:</label>
@@ -57,6 +64,27 @@
                 <label class="due_date_max">Lånetid, max:</label>
                 <input type="text" name="due_date_max" id="due_date_max" value="[% whole.due_date_max %]" />
            </li>
+        </ol>
+    </fieldset>
+    <fieldset class="rows">
+        <legend>Fee</legend>
+        <ol>
+            <li class="ill_charge">
+                <label class="ill_charge">Fee:</label>
+                <input type="text" name="ill_charge" id="ill_charge" value="[% whole.ill_charge %]" />
+            </li>
+            <li class="ill_charge_type">
+                <label class="ill_charge_type">Type:</label>
+                <select name="ill_charge_type">
+                    [% FOREACH charge_type IN whole.ill_charge_types %]
+                    <option value="[% charge_type.code %]">[% charge_type.description %]</option>
+                    [% END %]
+                </select>
+            </li>
+            <li class="ill_charge_description">
+                <label class="ill_charge_description">Fee description:</label>
+                <input type="text" name="ill_charge_description" id="ill_charge_description" value="[% whole.ill_charge_description %]" />
+            </li>
         </ol>
     </fieldset>
     <fieldset class="rows">

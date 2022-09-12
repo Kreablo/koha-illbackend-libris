@@ -42,8 +42,6 @@ IN_AVSL is probably the one you want to hide.
 
 (ILLHiddenRequestStatuses was added in version 20.11.00, bug 23391.)
 
-=back
-
 =head2 koha-conf.xml
 
 In this file you need to make sure you have set up a section called 
@@ -122,6 +120,12 @@ with this variable the backend can be told to use e.g. userid or borrowernumber.
 If this variable is not included in the config, cardnumber will be used as the
 default.
 
+=item * B<patron_id_field_alt> - This adds an extra field to look for the user_id
+in, in addition to the one given by "patron_id_field". If a patron is found based
+on the ID in "patron_id_field", that is used. If a patron is not found after
+checking "patron_id_field", another check is done on the field given by
+"patron_id_field_alt".
+
 =item * B<patron_id_attributes> - I patron identifiers (like extra cardnumbers)
 are stored as "extended patron attributes", a list of attribute codes can be
 listed in this config variable, and patrons will be looked up based on these
@@ -140,6 +144,16 @@ to add. The threshold can be changed with this parameter.
 be added as 942$c. With this config option you can add any given value to any
 other subfield of field 942. This config variable was added to make it possible
 to always set 942$n = 1 (suppress in opac).
+
+=item * B<item_level_holds> - When a new request is added, a record and an item
+is also added, and a hold is placed on the record for the requesting patron. If
+this variable is set to 0 (or not set at all), the hold will be on the record
+level. If this variable is set to 1, the hold will be an item level hold.
+
+=item * B<reminders> - This is a complex config option that specified when reminders
+should be sent out by the F<cron/reminder_notice.pl> script. I can specify the
+number of days to wait and the corresponding letter code to send, for both "loans"
+and "copies". See the example below for how to set this up.
 
 =back
 
@@ -162,10 +176,27 @@ Example:
   update_library_data: 0
   close_article_request_on_receive: 0
   patron_id_field: userid
+  patron_id_field_alt: borrowernumber
   recordid_limit: 25
   subfields_for_942:
     n: 1
     x: y
+  item_level_holds: 1
+  reminders:
+    Lån:
+      - days_after: 0
+        letter_code: ILL_ANK_L1
+      - days_after: 14
+        letter_code: ILL_ANK_L2
+      - days_after: 21
+        letter_code: ILL_ANK_L3
+    Kopia:
+      - days_after: 0
+        letter_code: ILL_ANK_K1
+      - days_after: 14
+        letter_code: ILL_ANK_K2
+      - days_after: 21
+        letter_code: ILL_ANK_K3
 
 =head2 Notices
 
@@ -175,7 +206,15 @@ Add notices with the following codes under Tools > Notices and slips:
 
 =item * B<ILL_ANK_LAN> - For books and other media that are borrowed and returned.
 
+=item * B<ILL_ANK_LAN_REMINDERn> - For books and other media that patron has not yet retrieved,
+n represents config.yaml reminders.Lån array index + 1 so that it is possible
+to define any amount of reminders. Example: ILL_ANK_LAN_REMINDER1
+
 =item * B<ILL_ANK_KOPIA> - For article copies that are not returned.
+
+=item * B<ILL_ANK_KOPIA_REMINDERn> - For article copies that are not yet retrieved,
+n represents config.yaml reminders.Kopia array index + 1 so that it is possible
+to define any amount of reminders. Example: ILL_ANK_KOPIA_REMINDER1
 
 =back
 
@@ -203,6 +242,17 @@ The following settings should apply to all notices:
   Vänliga hälsningar
   Biblioteket
 
+=head3 ILL_ANK_KOPIA_REMINDERn  - Email and print
+
+  Hej, <<borrowers.firstname>> <<borrowers.surname>>!
+
+  Din artikelkopia har ankommit till biblioteket:
+
+  <<biblio.title>> av <<biblio.author>>
+
+  Vänliga hälsningar
+  Biblioteket
+
 =head3 ILL_ANK_LAN - Email and print
 
   Hej, <<borrowers.firstname>> <<borrowers.surname>>!
@@ -211,6 +261,17 @@ The following settings should apply to all notices:
   
   <<biblio.title>> av <<biblio.author>>
   
+  Vänliga hälsningar
+  Biblioteket
+
+=head3 ILL_ANK_LAN_REMINDERn - Email and print
+
+  Hej, <<borrowers.firstname>> <<borrowers.surname>>!
+
+  Ditt fjärrlån har ankommit till biblioteket:
+
+  <<biblio.title>> av <<biblio.author>>
+
   Vänliga hälsningar
   Biblioteket
 
