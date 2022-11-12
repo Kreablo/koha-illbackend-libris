@@ -105,6 +105,7 @@
            </li>
         </ol>
     </fieldset>
+    [% IF Koha.Preference('SMSSendDriver') %]
     <fieldset class="rows">
         <legend>Message - SMS</legend>
         <ol>
@@ -123,6 +124,7 @@
            </li>
         </ol>
     </fieldset>
+    [% END %]
     <fieldset class="rows">
         <legend>Streckkod</legend>
         <ol>
