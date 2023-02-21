@@ -44,11 +44,18 @@ my %metadata_map = (
 );
 
 # Get options
-my ( $libris_sigil, $mode, $start_date, $end_date, $limit, $refresh, $refresh_all, $verbose, $debug, $test ) = get_options();
+my ( $libris_sigil, $mode, $start_date, $end_date, $limit, $refresh, $refresh_all, $orderid_filter, $verbose, $debug, $test ) = get_options();
 
 # Get the path to, and read in, the Libris ILL config file
 my $ill_config_file = C4::Context->config('interlibrary_loans')->{'libris_config'};
 my $ill_config = LoadFile( $ill_config_file );
+
+my %orderid_filter;
+if ($orderid_filter) {
+    for my $f (split ',', $orderid_filter) {
+        $orderid_filter{$f} = 1;
+    }
+}
 
 # $libris_sigil will only be set if we are using $mode. If we are doing a refresh,
 # it will not be set.
@@ -86,6 +93,9 @@ if ( $refresh || $refresh_all ) {
     my $refresh_count = 0;
     while ( my $req = $old_requests->next ) {
         next unless $req->orderid;
+
+        next if $orderid_filter && !$orderid_filter{$req->orderid};
+
         say "Going to refresh request with illrequest_id=", $req->illrequest_id;
         # Find the sigil of the library that requested the ILL this is stoed as
         # ILL request attribute "requesting_library"
@@ -123,6 +133,8 @@ if ( $refresh || $refresh_all ) {
 say "Found $data->{'count'} requests" if $verbose;
 
 REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
+
+    next if $orderid_filter && !$orderid_filter{$req->{'lf_number'}};
 
     # If this request is marked with a "local" status we skip to the next request
     if ( Koha::Illrequests->find({ orderid => $req->{'lf_number'} }) ) {
@@ -511,6 +523,10 @@ catch requests that fall outside the --start_date and --end_date range.
 
 Get fresh data for all requests in the database.
 
+=item B<-F, --orderid_filter <orderid list>>
+
+Comma separated Filter requests by orderid.  Only process requests with orderid included in the list.
+
 =item B<-v --verbose>
 
 More verbose output.
@@ -544,6 +560,7 @@ sub get_options {
     my $limit        = '';
     my $refresh      = '';
     my $refresh_all  = '';
+    my $orderid_filter = '';
     my $verbose      = '';
     my $debug        = '';
     my $test         = '';
@@ -557,6 +574,7 @@ sub get_options {
         'l|limit=i'      => \$limit,
         'r|refresh'      => \$refresh,
         'a|refresh_all'  => \$refresh_all,
+        'F|orderid_filter=s' => \$orderid_filter,
         'v|verbose'      => \$verbose,
         'd|debug'        => \$debug,
         't|test'         => \$test,
@@ -585,7 +603,7 @@ sub get_options {
     # FIXME Point out that the mode was invalid
     pod2usage( -exitval => 0 ) unless $mode_ok{ $mode };
 
-    return ( $libris_sigil, $mode, $start_date, $end_date, $limit, $refresh, $refresh_all, $verbose, $debug, $test );
+    return ( $libris_sigil, $mode, $start_date, $end_date, $limit, $refresh, $refresh_all, $orderid_filter, $verbose, $debug, $test );
 
 }
 
