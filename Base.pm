@@ -875,6 +875,7 @@ sub receive {
             borrowernumber => $request->borrowernumber,
             patron         => $patron,
             categorycode   => $patron->categorycode,
+            ill_charge_types => $ill_charge_types,
             title     => $reqattr->('title'),
             author    => $reqattr->('author'),
             lf_number => $request->orderid,
