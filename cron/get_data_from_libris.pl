@@ -49,6 +49,7 @@ my ( $libris_sigil, $mode, $start_date, $end_date, $limit, $refresh, $refresh_al
 # Get the path to, and read in, the Libris ILL config file
 my $ill_config_file = C4::Context->config('interlibrary_loans')->{'libris_config'};
 my $ill_config = LoadFile( $ill_config_file );
+say Dumper $ill_config if $debug;
 
 my %orderid_filter;
 if ($orderid_filter) {
@@ -68,7 +69,7 @@ if ( $libris_sigil ) {
     # Check for a complete ILL config 
     foreach my $key ( qw( libris_sigil libris_key unknown_patron unknown_biblio ) ) {
         unless ( $ill_config->{ $key } ) {
-            die "You need to define '$key' in koha-conf.xml! See 'docs/config.pod' for details.\n"
+            die "You need to define '$key' in the YAML config-file! See 'docs/config.pod' for details.\n"
         }
     }
 
@@ -239,11 +240,16 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
 
 ## Save or update the request in Koha
 
+    # Look for the Libris order number
+    my $old_illrequest = Koha::Illrequests->find({ orderid => $req->{'lf_number'} });
+    if ( $old_illrequest and defined $old_illrequest->borrowernumber ) {
+        # Patron is already connected to an old ill request
+        $borrower = Koha::Patrons->find( $old_illrequest->borrowernumber )
+    }
+
     # Home branch of created items
     my $homebranch = defined $ill_config->{ill_homebranch} ? $ill_config->{ill_homebranch} : $borrower->branchcode;
     my $holdingbranch = $borrower->branchcode;
-    # Look for the Libris order number
-    my $old_illrequest = Koha::Illrequests->find({ orderid => $req->{'lf_number'} });
     # We have an old request, so we update it
     if ( $old_illrequest ) {
         say "Found an existing request with illrequest_id = " . $old_illrequest->illrequest_id if $verbose;
