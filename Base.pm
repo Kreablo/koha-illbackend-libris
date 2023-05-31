@@ -1131,7 +1131,7 @@ sub get_data {
 
     my ( $ill_config, $fragment ) = @_;
 
-    my $base_url  = 'http://iller.libris.kb.se/librisfjarrlan/api';
+    my $base_url  = 'https://iller.libris.kb.se/librisfjarrlan/api';
     my $sigil     = $ill_config->{ 'libris_sigil' };
     my $libriskey = $ill_config->{ 'libris_key' };
 
@@ -1519,7 +1519,7 @@ sub _update_libris {
     $ua->agent("Koha ILL");
 
     # Create a request
-    my $url = "http://iller.libris.kb.se/librisfjarrlan/api/illrequests/$sigil/$orderid";
+    my $url = "https://iller.libris.kb.se/librisfjarrlan/api/illrequests/$sigil/$orderid";
     warn "POSTing to $url";
     my $req = HTTP::Request->new( 'POST', $url );
     warn "*** libris_key: " . $ill_config->{ 'libris_key' };
@@ -1562,7 +1562,7 @@ sub _get_data_from_libris {
 
     my ( $ill_config, $fragment ) = @_;
 
-    my $base_url  = 'http://iller.libris.kb.se/librisfjarrlan/api';
+    my $base_url  = 'https://iller.libris.kb.se/librisfjarrlan/api';
     my $sigil     = $ill_config->{ 'libris_sigil' };
     my $libriskey = $ill_config->{ 'libris_key' };
 
