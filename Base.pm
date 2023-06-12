@@ -1458,7 +1458,13 @@ sub _save_due_date {
     if ( $due_date_var and defined $due_date ) {
         # format due date
         if ( ref( $due_date ) ne 'DateTime' ) {
-            $due_date = dt_from_string( $due_date );
+            eval {
+                $due_date = dt_from_string( $due_date );
+            };
+            if ($@) {
+                warn "Could not parse due date: '$due_date'";
+                $due_date = undef;
+            }
         }
 
         my $prev_due_date = Koha::Illrequestattributes->find({
