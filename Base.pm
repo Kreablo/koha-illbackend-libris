@@ -1473,14 +1473,14 @@ sub _save_due_date {
         });
         if ( $prev_due_date ) {
             $prev_due_date->value( $due_date->ymd() )->store;
-        } else {
+        } elsif (defined $due_date) {
             Koha::Illrequestattribute->new({
                 illrequest_id => $request->illrequest_id,
                 type          => $due_date_var,
                 value         => $due_date->ymd(),
             })->store;
         }
-        if ( defined $ill_config->{'date_due_period'} && $ill_config->{'date_due_period'} eq $due_date_var ) {
+        if ( defined $ill_config->{'date_due_period'} && $ill_config->{'date_due_period'} eq $due_date_var && defined $due_date ) {
             $request->due_date( $due_date->ymd() )->store;
             return $due_date;
         }
