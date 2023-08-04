@@ -1160,12 +1160,12 @@ sub get_data {
     }
 
     unless ( $json ) {
-        die "No JSON!\n";
+        warn "No JSON!\n";
     }
 
     my $data = decode_json( $json );
     if ( $data->{'count'} == 0 ) {
-        die "No data!\n";
+        warn "No data!\n";
     }
 
     # say Dumper $data if $debug;
@@ -1459,7 +1459,7 @@ sub _save_due_date {
         # format due date
         if ( ref( $due_date ) ne 'DateTime' ) {
             eval {
-                $due_date = dt_from_string( $due_date );
+                $due_date = dt_from_string( "$due_date 23:59" );
             };
             if ($@) {
                 warn "Could not parse due date: '$due_date'";
@@ -1480,7 +1480,7 @@ sub _save_due_date {
                 value         => $due_date->ymd(),
             })->store;
         }
-        if ( $ill_config->{'date_due_period'} eq $due_date_var ) {
+        if ( defined $ill_config->{'date_due_period'} && $ill_config->{'date_due_period'} eq $due_date_var ) {
             $request->due_date( $due_date->ymd() )->store;
             return $due_date;
         }
