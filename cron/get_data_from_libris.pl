@@ -346,7 +346,7 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
             'backend'        => 'Libris',
             'stage'          => 'from_api',
         });
-        say Dumper $backend_result; # FIXME Check for no errors
+        say Dumper $backend_result if $debug; # FIXME Check for no errors
         say "Created new request with illrequest_id = " . $illrequest->illrequest_id if $verbose;
         # Add attributes
         insert_or_update_attributes($illrequest, $req);

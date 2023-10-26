@@ -1625,9 +1625,6 @@ sub create {
     my $ill_config_file = C4::Context->config('interlibrary_loans')->{'libris_config'};
     my $ill_config = LoadFile( $ill_config_file );
 
-warn "In create";
-warn Dumper $params;
-
     my $other = $params->{other};
     my $stage = $other->{stage};
 
@@ -1718,7 +1715,6 @@ warn Dumper $params;
             })->store;
         }
 
-# warn Dumper $params->{other}->{attr};
 
         # -> create response.
         return {
