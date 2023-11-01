@@ -790,7 +790,7 @@ sub receive {
             }
 
             # Store date_received
-            my $date_received = Koha::Illrequestattributes-->find({
+            my $date_received = Koha::Illrequestattributes->find({
                 illrequest_id => $request->illrequest_id,
                 type          => 'date_received',
             });
