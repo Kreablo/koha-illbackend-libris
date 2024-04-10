@@ -30,6 +30,8 @@ $| = 1; # Don't buffer output
 
 use C4::Context;
 use C4::Reserves qw( AddReserve );
+use C4::Log qw( cronlogaction );
+use Koha::Script -cron;
 use Koha::Illcomment;
 use Koha::Illrequests;
 use Koha::Illrequest::Config;
@@ -42,6 +44,9 @@ my %metadata_map = (
     'title_of_article' => 'article_title', # FIXME Base.pm, line 1412
     'volume_designation' => 'volume',
 );
+
+my $command_line_options = join( " ", @ARGV );
+cronlogaction( { info => $command_line_options } );
 
 # Get options
 my ( $libris_sigil, $mode, $start_date, $end_date, $limit, $refresh, $refresh_all, $orderid_filter, $verbose, $debug, $test ) = get_options();
@@ -58,6 +63,7 @@ if ($orderid_filter) {
     }
 }
 
+
 # $libris_sigil will only be set if we are using $mode. If we are doing a refresh,
 # it will not be set.
 if ( $libris_sigil ) {
@@ -66,7 +72,7 @@ if ( $libris_sigil ) {
     $ill_config->{ 'libris_sigil' } = $libris_sigil;
     $ill_config->{ 'libris_key' } = $ill_config->{ 'libraries' }->{ $libris_sigil }->{ 'libris_key' };
 
-    # Check for a complete ILL config 
+    # Check for a complete ILL config
     foreach my $key ( qw( libris_sigil libris_key unknown_patron unknown_biblio ) ) {
         unless ( $ill_config->{ $key } ) {
             die "You need to define '$key' in the YAML config-file! See 'docs/config.pod' for details.\n"

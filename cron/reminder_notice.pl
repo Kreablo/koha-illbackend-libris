@@ -20,6 +20,8 @@ use Koha::Notice::Messages;
 use Koha::Patrons;
 use C4::Context;
 use C4::Letters;
+use C4::Log qw( cronlogaction );
+use Koha::Script -cron;
 binmode(STDOUT, ":utf8");
 
 my ($skip_issues_check, $verbose) = get_options();
@@ -27,6 +29,9 @@ my ($skip_issues_check, $verbose) = get_options();
 print "Execution started at " . DateTime->now->iso8601 . "\n" if $verbose;
 
 my $dbh = C4::Context->dbh;
+
+my $command_line_options = join( " ", @ARGV );
+cronlogaction( { info => $command_line_options } );
 
 # Get the path to, and read in, the Libris ILL config file
 my $ill_config_file = C4::Context->config('interlibrary_loans')->{'libris_config'};
