@@ -124,6 +124,7 @@
       <input name="stage" id="stage" value="save" type="hidden">
       <input name="method" id="method" value="create" type="hidden">
       <input name="backend" id="backend" value="Libris" type="hidden" />
+      [% IF Koha.Version.major >= 24 %][% INCLUDE 'csrf-token.inc' %][% END %]
       <input type="submit" value="Save">
       <a href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&illrequest_id=[% whole.illrequest_id %]">Cancel</a>
 </form>

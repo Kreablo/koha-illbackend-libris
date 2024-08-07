@@ -13,6 +13,7 @@
     <form class="validated" method="post" action="/cgi-bin/koha/opac-illrequests.pl">
         <input type="hidden" name="stage" value="[% whole.stage %]"/>
         <input type="hidden" name="method" value="[% whole.method %]"/>
+        [% IF Koha.Version.major >= 24 %][% INCLUDE 'csrf-token.inc' %][% END %]
         <input type="hidden" name="op" value="[% whole.method %]"/>
         <input name="backend" id="method" value="[% whole.value.other.backend %]" type="hidden"/>
         <fieldset class="rows">

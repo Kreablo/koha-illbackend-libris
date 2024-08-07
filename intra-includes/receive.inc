@@ -138,6 +138,7 @@
     <fieldset class="action">
         <input name="stage" id="stage" value="receive" type="hidden"/>
         <input name="method" id="method" value="receive" type="hidden"/>
+        [% IF Koha.Version.major >= 24 %][% INCLUDE 'csrf-token.inc' %][% END %]
         <input name="illrequest_id" id="illrequest_id" value="[% whole.illrequest_id %]" type="hidden"/>
         <input type="hidden" name="letter_code" id="letter_code" value="[% whole.letter_code %]" />
         <input type="submit" value="Motta">

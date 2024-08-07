@@ -52,6 +52,7 @@
             <li class="title">
                 <input name="stage" id="stage" value="response" type="hidden"/>
                 <input name="method" id="method" value="respond" type="hidden"/>
+                [% IF Koha.Version.major >= 24 %][% INCLUDE 'csrf-token.inc' %][% END %]
                 <input name="illrequest_id" id="illrequest_id" value="[% whole.illrequest_id %]" type="hidden"/>
                 <input type="submit" value="Save">
                 <a href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&illrequest_id=[% whole.illrequest_id %]">Cancel</a>
