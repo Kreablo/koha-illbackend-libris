@@ -4,7 +4,7 @@
 
 =head1 get_record_from_request
 
-Tests for Koha::Illbackends::Libris::Base::get_record_from_request
+Tests for Koha::ILL::Backends::Libris::Base::get_record_from_request
 
 =cut
 
@@ -30,7 +30,7 @@ my $request = {
     'title'  => 'My title with æøåäö',
 };
 
-my $record_from_request = Koha::Illbackends::Libris::Base::get_record_from_request( $request );
+my $record_from_request = Koha::ILL::Backends::Libris::Base::get_record_from_request( $request );
 my $marcxml = '<?xml version="1.0" encoding="UTF-8"?>
 <collection
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

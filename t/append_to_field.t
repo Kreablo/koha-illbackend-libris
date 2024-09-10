@@ -4,7 +4,7 @@
 
 =head1 _append_to_field
 
-Tests for Koha::Illbackends::Libris::Base::_append_to_field
+Tests for Koha::ILL::Backends::Libris::Base::_append_to_field
 
 =cut
 
@@ -34,7 +34,7 @@ $record->insert_fields_ordered( $old_field );
 
 my $old_value = $record->subfield( '245', 'a' );
 
-$record = Koha::Illbackends::Libris::Base::_append_to_field( $record, '245', 'a', $added_text );
+$record = Koha::ILL::Backends::Libris::Base::_append_to_field( $record, '245', 'a', $added_text );
 
 my $new_title_from_record = $record->subfield( '245', 'a' );
 

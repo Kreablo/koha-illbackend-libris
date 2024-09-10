@@ -13,11 +13,11 @@ If a library has a lot of ILL traffic, the list of finished ILL requests on
 display in the main ILL request table will soon make that page forbiddingly
 slow to load. This little fix hides the finished requests:
 
-File: F</usr/share/koha/lib/Koha/REST/V1/Illrequests.pm>
+File: F</usr/share/koha/lib/Koha/REST/V1/ILL/Requests.pm>
 
  57     # Get all requests
  58     # If necessary, only get those from a specified patron
- 59     my @requests = Koha::Illrequests->search({
+ 59     my @requests = Koha::ILL::Requests->search({
  60         ( status => { 'not in' => 'IN_AVSL' } ),
  61         $args->{borrowernumber}
  62         ? ( borrowernumber => $args->{borrowernumber} )

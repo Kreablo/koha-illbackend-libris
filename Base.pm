@@ -32,7 +32,7 @@ use C4::Letters;
 use C4::Message;
 use Koha::Account::DebitTypes;
 use Koha::DateUtils qw( dt_from_string );
-use Koha::Illrequestattribute;
+use Koha::ILL::Request::Attribute;
 use Koha::Patrons;
 use Koha::Item;
 use Koha::Items;
@@ -66,7 +66,7 @@ following methods:
 - status_graph  -> return a hashref of additional statuses
 
 Each of the above methods will receive the following parameter from
-Illrequest.pm:
+ILL/Request.pm:
 
   {
       request    => $request,
@@ -75,8 +75,8 @@ Illrequest.pm:
 
 where:
 
-- $REQUEST is the Illrequest object in Koha.  It's associated
-  Illrequestattributes can be accessed through the `illrequestattributes`
+- $REQUEST is the ILL::Request object in Koha.  It's associated
+  ILL::Request::Attributes can be accessed through the `illrequestattributes`
   method.
 - $OTHER is any further data, generally provided through templates .INCs
 
@@ -97,7 +97,7 @@ Each of the above methods should return a hashref of the following format:
         stage   => 'commit',
         # ^------- The current stage of this method
         #          Used by INCLUDE to determine HTML to generate.
-        #          'commit' will result in final processing by Illrequest.pm.
+        #          'commit' will result in final processing by ILL::Request.pm.
         next    => 'illview'|'illlist',
         # ^------- When stage is 'commit', should we move on to ILLVIEW the
         #          current request or ILLLIST all requests.
@@ -652,7 +652,7 @@ sub close {
         # Save the changes
         $request->store;
         # Add a comment
-        my $comment = Koha::Illcomment->new({
+        my $comment = Koha::ILL::Comment->new({
             illrequest_id  => $request->illrequest_id,
             borrowernumber => $ill_config->{ 'libris_borrowernumber' },
             comment        => "Status ändrad från $old_status_name till $new_status_name.",
@@ -723,7 +723,7 @@ sub receive {
         if ( $request->extended_attributes->find({ type => 'type' }) && $request->extended_attributes->find({ type => 'type' })->value ) {
             $request->extended_attributes->find({ 'type' => 'type' })->update({ 'value' => $params->{ 'other' }->{ 'type' } });
         } else {
-            Koha::Illrequestattribute->new({
+            Koha::ILL::Request::Attribute->new({
                 illrequest_id => $request->illrequest_id,
                 type          => 'type',
                 value         => $params->{ 'other' }->{ 'type' },
@@ -809,12 +809,12 @@ sub receive {
             }
 
             # Store date_received
-            my $date_received = Koha::Illrequestattributes->find({
+            my $date_received = Koha::ILL::Request::Attributes->find({
                 illrequest_id => $request->illrequest_id,
                 type          => 'date_received',
             });
             unless ( $date_received ) {
-                $date_received = Koha::Illrequestattribute->new({
+                $date_received = Koha::ILL::Request::Attribute->new({
                     illrequest_id => $request->illrequest_id,
                     type          => 'date_received',
                     value         => DateTime->today,
@@ -1507,14 +1507,14 @@ sub _save_due_date {
             }
         }
 
-        my $prev_due_date = Koha::Illrequestattributes->find({
+        my $prev_due_date = Koha::ILL::Request::Attributes->find({
             illrequest_id => $request->illrequest_id,
             type          => $due_date_var,
         });
         if ( $prev_due_date ) {
             $prev_due_date->value( $due_date->ymd() )->store;
         } elsif (defined $due_date) {
-            Koha::Illrequestattribute->new({
+            Koha::ILL::Request::Attribute->new({
                 illrequest_id => $request->illrequest_id,
                 type          => $due_date_var,
                 value         => $due_date->ymd(),
@@ -1684,9 +1684,9 @@ sub create {
         $request->notesstaff(     );
         $request->backend(        $params->{other}->{backend} );
         $request->store;
-        # ...Populate Illrequestattribute
+        # ...Populate ILL::Request::Attribute
         while ( my ( $type, $value ) = each %{$params->{other}->{attr}} ) {
-            Koha::Illrequestattribute->new({
+            Koha::ILL::Request::Attribute->new({
                 illrequest_id => $request->illrequest_id,
                 type          => $type,
                 value         => $value,
@@ -1746,7 +1746,7 @@ sub create {
         );
         foreach my $type ( keys %attrmap ) {
             my $save_as_type = $attrmap{ $type };
-            Koha::Illrequestattribute->new({
+            Koha::ILL::Request::Attribute->new({
                 illrequest_id => $request->illrequest_id,
                 type          => $save_as_type,
                 value         => $params->{other}->{ $type },
@@ -1795,7 +1795,7 @@ Confirm the placement of the previously "selected" request (by using the
 'create' method).
 
 In this case we will generally use $request.
-This will be supplied at all times through Illrequest.  $other may be supplied
+This will be supplied at all times through ILL::Request.  $other may be supplied
 using templates.
 
 =cut
@@ -1849,7 +1849,7 @@ Attempt to renew a request that was supplied through backend and is currently
 in use by us.
 
 We will generally use $request.  This will be supplied at all times through
-Illrequest.  $other may be supplied using templates.
+ILL::Request.  $other may be supplied using templates.
 
 =cut
 
@@ -1933,7 +1933,7 @@ sub renew {
 
         # Save comment
         if ( $params->{ 'other' }->{ 'comment' } ) {
-            my $comment = Koha::Illcomment->new({
+            my $comment = Koha::ILL::Comment->new({
                 illrequest_id  => $request->illrequest_id,
                 borrowernumber => C4::Context->userenv->{'number'},
                 comment        => $params->{ 'other' }->{ 'comment' },
@@ -2000,7 +2000,7 @@ sub renew {
 We will attempt to cancel a request that was confirmed.
 
 We will generally use $request.  This will be supplied at all times through
-Illrequest.  $other may be supplied using templates.
+ILL::Request.  $other may be supplied using templates.
 
 =cut
 
@@ -2047,7 +2047,7 @@ sub cancel {
 We will try to retrieve the status of a specific request.
 
 We will generally use $request.  This will be supplied at all times through
-Illrequest.  $other may be supplied using templates.
+ILL::Request.  $other may be supplied using templates.
 
 =cut
 
