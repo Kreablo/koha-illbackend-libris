@@ -36,7 +36,7 @@ use Koha::ILL::Comment;
 use Koha::ILL::Requests;
 use Koha::ILL::Request::Config;
 use Koha::Illbackends::Libris::Base;
-use Koha::ILL::Request::Attribute-
+use Koha::ILL::Request::Attribute;
 
 # Special treatment for some metadata elements, to make them show up in the main ILL table
 # Libris metadata elements on the left, Koha ILL metadata elements on the right
