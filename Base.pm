@@ -1094,7 +1094,6 @@ sub upsert_record {
         $biblionumber = $saved_req->biblio_id;
         # Update record
         C4::Biblio::ModBiblio( $record, $biblionumber, '' );
-        say "Updated record with biblionumber=$biblionumber";
     } else {
         # Add a new record
         ( $biblionumber, $biblioitemnumber ) = C4::Biblio::AddBiblio( $record, '' );
@@ -1112,9 +1111,6 @@ sub upsert_record {
         if ( defined $item ) {
             $item->store;
             $itemnumber = $item->itemnumber;
-            say "Added new item with itemnumber=$itemnumber and notforloan: " . $item->notforloan;
-        } else {
-            say "No item added";
         }
     }
 

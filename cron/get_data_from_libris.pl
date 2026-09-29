@@ -152,35 +152,36 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
     }
 
     next REQUEST unless $req->{'request_id'};
+    my $receiving_library = $req->{'receiving_library'};
+    my @recipients = @{ $req->{'recipients'} };
 
 ## Output details about the request
-
-    say "-----------------------------------------------------------------";
-    say "* $req->{'request_id'} / $req->{'lf_number'}:  $req->{'title'} ($req->{'year'})";
-    say "\tAuthor:       $req->{'author'} / $req->{'imprint'} / $req->{'place_of_publication'}";
-    say "\tISBN/ISSN:    $req->{'isbn_issn'}";
-    say "\tRequest type: $req->{'request_type'}";
-    say "\tProc. time:   $req->{'processing_time'} ($req->{'processing_time_code'})";
-    say "\tDeliv. type:  $req->{'delivery_type'} ($req->{'delivery_type_code'})";
-    say "\tStatus:       $req->{'status'}";
-    say "\tXstatus:      $req->{'xstatus'}";
-    say "\tMessage:      $req->{'message'}";
-    say "\tbib_id:       $req->{'bib_id'}";
-    say "\tUser ID:      $req->{'user_id'}";
+    if ( $verbose ) {
+        say "-----------------------------------------------------------------";
+        say "* $req->{'request_id'} / $req->{'lf_number'}:  $req->{'title'} ($req->{'year'})";
+        say "\tAuthor:       $req->{'author'} / $req->{'imprint'} / $req->{'place_of_publication'}";
+        say "\tISBN/ISSN:    $req->{'isbn_issn'}";
+        say "\tRequest type: $req->{'request_type'}";
+        say "\tProc. time:   $req->{'processing_time'} ($req->{'processing_time_code'})";
+        say "\tDeliv. type:  $req->{'delivery_type'} ($req->{'delivery_type_code'})";
+        say "\tStatus:       $req->{'status'}";
+        say "\tXstatus:      $req->{'xstatus'}";
+        say "\tMessage:      $req->{'message'}";
+        say "\tbib_id:       $req->{'bib_id'}";
+        say "\tUser ID:      $req->{'user_id'}";
     
-    my $receiving_library = $req->{'receiving_library'};
-    say "\tReceiving library: $receiving_library->{'name'} ($receiving_library->{'library_code'})";
+        say "\tReceiving library: $receiving_library->{'name'} ($receiving_library->{'library_code'})";
 
-    say "\tRecipients:";
-    my @recipients = @{ $req->{'recipients'} };
-    foreach my $recip ( @recipients ) {
-        print "\t\t$recip->{'library_code'} ($recip->{'library_id'}) | ";
-        print "Location: $recip->{'location'} | ";
-        if ( $recip->{'response'} ) {
-            print "Response: $recip->{'response'} ($recip->{'response_date'}) | ";
+        say "\tRecipients:";
+        foreach my $recip ( @recipients ) {
+            print "\t\t$recip->{'library_code'} ($recip->{'library_id'}) | ";
+            print "Location: $recip->{'location'} | ";
+            if ( $recip->{'response'} ) {
+                print "Response: $recip->{'response'} ($recip->{'response_date'}) | ";
+            }
+            print "Active: $recip->{'is_active_library'}";
+            print "\n";
         }
-        print "Active: $recip->{'is_active_library'}";
-        print "\n";
     }
 
     # Bail out if we are only testing
@@ -204,7 +205,7 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
             my $userid = $req->{'user_id'};
             $userid =~ s/ //g;
             # FIXME Do more checking of the user_id?
-            say "Looking for user_id=$userid";
+            say "Looking for user_id=$userid" if $verbose;
             $borrower = Koha::Illbackends::Libris::Base::userid2borrower( $userid );
         } else {
             # There is no userid, so use the unknown_patron
@@ -216,7 +217,7 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
             say Dumper $borrower->unblessed if $debug;
         } else {
             # There is a user_id, but we could not find a borrower, so use unknown_patron
-            say "Borrower not found, using unknown_patron";
+            say "Borrower not found, using unknown_patron" if $verbose;
             $borrower = Koha::Patrons->find({ 'borrowernumber' => $ill_config->{ 'unknown_patron' } });
         }
         # Set the prefix
@@ -238,9 +239,9 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
             }
         }
         # The loan was requested by another library, so we save or update data (from Libris) about the receiving library
-        say "Looking for library_code=" . $receiving_library->{'library_code'};
+        say "Looking for library_code=" . $receiving_library->{'library_code'} if $verbose;
         $borrower = Koha::Illbackends::Libris::Base::upsert_receiving_library( $ill_config, $receiving_library->{'library_code'} );
-        say "Found borrowernumber=" . $borrower->borrowernumber;
+        say "Found borrowernumber=" . $borrower->borrowernumber if $verbose;
         # Set the prefix
         $status = 'OUT_';
 
@@ -296,20 +297,20 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
         $old_illrequest->medium( $req->{'media_type'} );
         $old_illrequest->orderid( $req->{'lf_number'} ); # Temporary fix for updating old requests
         $old_illrequest->biblio_id( $biblionumber );
-        say "Saving borrowernumber=" . $borrower->borrowernumber;
+        say "Saving borrowernumber=" . $borrower->borrowernumber if $verbose;
         $old_illrequest->borrowernumber( $borrower->borrowernumber );
         # $old_illrequest->branchcode( $borrower->branchcode ); Could be edited manually
         $old_illrequest->store;
-        say "Connected to biblionumber=$biblionumber";
+        say "Connected to biblionumber=$biblionumber" if $verbose;
         # Update the attributes
         insert_or_update_attributes($old_illrequest, $req);
         # Check if there is a reserve, if not add one (only for Inlån and loans, not copies)
         if ( ( $is_inlan && $is_inlan == 1 ) && $req->{'media_type'} eq 'Lån' ) {
             my $res = Koha::Holds->find({ borrowernumber => $borrower->borrowernumber, biblionumber => $biblionumber });
             if ( $res ) {
-                say "Found an old reserve with reserve_id=", $res->reserve_id;
+                say "Found an old reserve with reserve_id=", $res->reserve_id if $verbose;
             } else {
-                say "Reserve NOT FOUND! Going to add one for branchcode=", $borrower->branchcode, " borrowernumber=", $borrower->borrowernumber, " biblionumber=$biblionumber";
+                say "Reserve NOT FOUND! Going to add one for branchcode=", $borrower->branchcode, " borrowernumber=", $borrower->borrowernumber, " biblionumber=$biblionumber" if $verbose;
                 my $reserve_id;
                 if (C4::Context->preference("Version") > 20) {
                     if ( defined $ill_config->{ 'item_level_holds' } && $ill_config->{ 'item_level_holds' } == 1 ) {
@@ -329,7 +330,7 @@ REQUEST: foreach my $req ( @{ $data->{'ill_requests'} } ) {
                 } else {
                     $reserve_id = C4::Reserves::AddReserve( $borrower->branchcode, $borrower->borrowernumber, $biblionumber );
                 }
-                say "Reserve added with reserve_id=$reserve_id";
+                say "Reserve added with reserve_id=$reserve_id" if $verbose;
             }
         }
     # We do not have an old request, so we create a new one
