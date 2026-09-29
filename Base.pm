@@ -1093,7 +1093,7 @@ sub upsert_record {
         # Find the record connected to the saved request
         $biblionumber = $saved_req->biblio_id;
         # Update record
-        C4::Biblio::ModBiblio( $record, $biblionumber, '' );
+        # C4::Biblio::ModBiblio( $record, $biblionumber, '' );
     } else {
         # Add a new record
         ( $biblionumber, $biblioitemnumber ) = C4::Biblio::AddBiblio( $record, '' );
