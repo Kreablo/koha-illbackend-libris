@@ -1,3 +1,4 @@
+
 package Koha::Illbackends::Libris::Base;
 
 # Copyright Libriotech 2017
@@ -814,7 +815,7 @@ sub receive {
             my $barcode = $params->{other}->{ill_barcode};
             if ( $barcode ) {
                 my $item = Koha::Items->find({ 'biblionumber' => $request->biblio_id });
-                if ( $item->barcode ) {
+                if ( $item->barcode && $item->barcode !~ /^tmp-/ ) {
                     warn "Item already has barcode: " . $item->barcode;
                 } else {
                     $item->barcode( $barcode );
